@@ -14,9 +14,9 @@
 #define DATA_COLLECTION "data"
 #define STATS_DB "testresults"
 #define DEFAULT_URI "mongodb://10.14.0.198:27017"
-#define INSERT_THREADS 0
+#define INSERT_THREADS 500
 #define QUERY_THREADS 200
-#define SAMPLER_THREADS 0
+#define SAMPLER_THREADS 100
 #define REPORT_SLOW 2000
 #define SAMPLER_DELAY 2
 
@@ -102,7 +102,7 @@ int run_query() {
 		while (count-- && mongoc_cursor_more(cursor)
 				&& mongoc_cursor_next(cursor, &doc)) {
 			str = bson_as_json(doc, NULL);
-			printf ("%s\n", str);
+			//printf ("%s\n", str);
 			bson_free(str);
 		}
 
