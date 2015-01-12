@@ -22,6 +22,7 @@
 
 int run_inserter();
 int run_sampler();
+int run_query();
 
 int main(int argc, char **argv) {
 	int t;
@@ -33,7 +34,12 @@ int main(int argc, char **argv) {
 			exit(0);
 		}
 	}
-
+	for (t = 0; t < QUERY_THREADS; t++) {
+			if (fork() == 0) {
+				run_query();
+				exit(0);
+			}
+		}
 	for (t = 0; t < SAMPLER_THREADS; t++) {
 		if (fork() == 0) {
 			run_sampler();
