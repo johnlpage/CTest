@@ -13,7 +13,7 @@
 #define DATA_DB "ctest"
 #define DATA_COLLECTION "data"
 #define STATS_DB "testresults"
-#define DEFAULT_URI "mongodb://localhost:27017"
+#define DEFAULT_URI "mongodb://10.14.0.198:27017"
 #define INSERT_THREADS 500
 #define QUERY_THREADS 200
 #define SAMPLER_THREADS 10
