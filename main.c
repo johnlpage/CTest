@@ -15,7 +15,8 @@
 #define STATS_DB "testresults"
 #define DEFAULT_URI "mongodb://localhost:27017"
 #define INSERT_THREADS 500
-#define SAMPLER_THREADS 1
+#define QUERY_THREADS 200
+#define SAMPLER_THREADS 10
 #define REPORT_SLOW 2000
 #define SAMPLER_DELAY 2
 
@@ -44,6 +45,88 @@ int main(int argc, char **argv) {
 	while (wait(&status) != -1) {
 		printf("Child Quit\n");
 	}
+}
+
+int run_query() {
+	bson_t query;
+	mongoc_client_t *conn;
+	mongoc_collection_t *collection;
+	bson_error_t error;
+	struct timeval before_time;
+	struct timeval after_time;
+	mongoc_cursor_t *cursor;
+
+	const bson_t *doc;
+	char *str;
+
+	mongoc_init();
+
+	conn = mongoc_client_new(DEFAULT_URI);
+
+	if (!conn) {
+
+		fprintf(stderr, "Failed to parse URI.\n");
+		exit(1);
+	}
+
+	collection = mongoc_client_get_collection(conn, DATA_DB,
+	DATA_COLLECTION);
+
+	bson_t *index1;
+
+	index1 = BCON_NEW("sensor", BCON_INT32(1));
+
+	mongoc_collection_create_index(collection, index1, NULL, NULL);
+
+	bson_destroy(index1);
+
+	while (1) {
+
+		bson_init(&query);
+		long long sensor = lrand48();
+
+		bson_append_int64(&query, "sensor", -1, sensor);
+
+		gettimeofday(&before_time, NULL);
+
+		cursor = mongoc_collection_find(collection, MONGOC_QUERY_NONE, 0, 0, 0,
+				&query, NULL, NULL);
+		int count = 5;
+
+		while (count-- && mongoc_cursor_more(cursor)
+				&& mongoc_cursor_next(cursor, &doc)) {
+			str = bson_as_json(doc, NULL);
+			//printf ("%s\n", str);
+			bson_free(str);
+		}
+
+		if (mongoc_cursor_error(cursor, &error)) {
+			fprintf(stderr, "An error occurred: %s\n", error.message);
+			exit(0);
+		}
+
+		mongoc_cursor_destroy(cursor);
+
+		gettimeofday(&after_time, NULL);
+		unsigned long before_millis;
+		unsigned long after_millis;
+		unsigned long taken;
+
+		before_millis = (before_time.tv_sec * 1000)
+				+ (before_time.tv_usec / 1000);
+		after_millis = (after_time.tv_sec * 1000) + (after_time.tv_usec / 1000);
+
+		taken = after_millis - before_millis;
+
+		if (taken > REPORT_SLOW) {
+			printf("Query took %lu millieconds\n", taken);
+		}
+
+		bson_destroy(&query);
+	}
+
+	mongoc_collection_destroy(collection);
+
 }
 
 int run_inserter() {
@@ -137,12 +220,12 @@ int run_sampler() {
 			mongoc_collection_destroy(collection);
 			exit(1);
 
+		}
+		printf("%d Records in collection\n", nrecs);
+		mongoc_collection_destroy(collection);
+		bson_destroy(&query);
+		mongoc_client_destroy(conn);
+		sleep(SAMPLER_DELAY);
 	}
-	printf("%d Records in collection\n", nrecs);
-	mongoc_collection_destroy(collection);
-	bson_destroy(&query);
-	mongoc_client_destroy(conn);
-	sleep(SAMPLER_DELAY);
-}
 
 }
