@@ -174,7 +174,7 @@ int run_inserter() {
 
 		bson_append_oid(&record, "_id", -1, &oid);
 
-		bson_append_int64(&record, "rising", -1, count);
+		bson_append_int32(&record, "rising", -1, count);
 		bson_append_int32(&record, "falling", -1, 1000000000 - count);
 		bson_append_int32(&record, "random", -1, randno);
 		bson_append_int32(&record, "lowcard", -1, randno % 500);
