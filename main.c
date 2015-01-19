@@ -9,14 +9,15 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <mongoc.h>
+#include <assert.h>
 
 #define DATA_DB "ctest"
 #define DATA_COLLECTION "data"
 #define STATS_DB "testresults"
-#define DEFAULT_URI "mongodb://10.14.0.198:27017"
-#define INSERT_THREADS 500
-#define QUERY_THREADS 200
-#define SAMPLER_THREADS 0
+#define DEFAULT_URI "mongodb://localhost:27017"
+#define INSERT_THREADS 1
+#define QUERY_THREADS 0
+#define SAMPLER_THREADS 1
 #define REPORT_SLOW 2000
 #define SAMPLER_DELAY 2
 
@@ -35,11 +36,11 @@ int main(int argc, char **argv) {
 		}
 	}
 	for (t = 0; t < QUERY_THREADS; t++) {
-			if (fork() == 0) {
-				run_query();
-				exit(0);
-			}
+		if (fork() == 0) {
+			run_query();
+			exit(0);
 		}
+	}
 	for (t = 0; t < SAMPLER_THREADS; t++) {
 		if (fork() == 0) {
 			run_sampler();
@@ -142,6 +143,7 @@ int run_inserter() {
 	bson_error_t error;
 	struct timeval before_time;
 	struct timeval after_time;
+	mongoc_bulk_operation_t *bulk;
 
 	mongoc_init();
 
@@ -156,41 +158,68 @@ int run_inserter() {
 	collection = mongoc_client_get_collection(conn, DATA_DB,
 	DATA_COLLECTION);
 
+	long long count = 0;
+	bulk = mongoc_collection_create_bulk_operation(collection, true, NULL);
+	int batch = 1000;
+
 	while (1) {
 
 		bson_init(&record);
 		long long sensor = lrand48();
-		long value = lrand48() % 65535;
+		long long randno = lrand48();
 
 		static bson_oid_t oid;
 
 		bson_oid_init(&oid, NULL);
 
 		bson_append_oid(&record, "_id", -1, &oid);
-		bson_append_int64(&record, "sensor", -1, sensor);
-		bson_append_int32(&record, "value", -1, value);
 
-		gettimeofday(&before_time, NULL);
-		int rval = mongoc_collection_insert(collection, MONGOC_INSERT_NONE,
-				&record, NULL, &error);
-		gettimeofday(&after_time, NULL);
-		unsigned long before_millis;
-		unsigned long after_millis;
-		unsigned long taken;
+		bson_append_int64(&record, "rising", -1, count);
+		bson_append_int32(&record, "falling", -1, 1000000000 - count);
+		bson_append_int32(&record, "random", -1, randno);
+		bson_append_int32(&record, "lowcard", -1, randno % 500);
 
-		before_millis = (before_time.tv_sec * 1000)
-				+ (before_time.tv_usec / 1000);
-		after_millis = (after_time.tv_sec * 1000) + (after_time.tv_usec / 1000);
+		mongoc_bulk_operation_insert(bulk, &record);
+		batch--;
 
-		taken = after_millis - before_millis;
+		//int rval = mongoc_collection_insert(collection, MONGOC_INSERT_NONE,
+		//		&record, NULL, &error);
+		if (batch == 0) {
+			gettimeofday(&before_time, NULL);
 
-		if (taken > REPORT_SLOW) {
-			printf("Append took %lu millieconds\n", taken);
-		}
-		if (!rval) {
-			printf("Error : %s\n", error.message);
-			mongoc_collection_destroy(collection);
-			exit(1);
+			bson_t reply;
+			bool ret;
+			char *str;
+			ret = mongoc_bulk_operation_execute(bulk, &reply, &error);
+			str = bson_as_json(&reply, NULL);
+			//  printf ("%s\n", str);
+			bson_free(str);
+			bson_destroy(&reply);
+
+			gettimeofday(&after_time, NULL);
+
+			unsigned long before_millis, after_millis, taken;
+
+			before_millis = (before_time.tv_sec * 1000)
+					+ (before_time.tv_usec / 1000);
+			after_millis = (after_time.tv_sec * 1000)
+					+ (after_time.tv_usec / 1000);
+
+			taken = after_millis - before_millis;
+
+			if (taken > REPORT_SLOW) {
+				printf("Append took %lu millieconds\n", taken);
+			}
+
+			if (!ret) {
+				printf("Error : %s\n", error.message);
+				mongoc_collection_destroy(collection);
+				exit(1);
+			}
+			batch = 1000;
+			mongoc_bulk_operation_destroy(bulk);
+			bulk = mongoc_collection_create_bulk_operation(collection, true,
+					NULL);
 		}
 		bson_destroy(&record);
 	}

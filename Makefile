@@ -9,8 +9,8 @@ LIBS = -lmongoc-1.0 -lbson-1.0
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(INCLUDE) $(CFLAGS)
 
-loadsrv: $(OBJ)
+datagen : $(OBJ)
 	gcc -o $@ $^ $(CFLAGS) $(LIBS)
 
 clean:
-	rm -f *.o loadsrv 
+	rm -f *.o datagen
