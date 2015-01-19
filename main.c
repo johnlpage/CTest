@@ -178,7 +178,7 @@ int run_inserter() {
 		bson_append_int32(&record, "falling", -1, 1000000000 - count);
 		bson_append_int32(&record, "random", -1, randno);
 		bson_append_int32(&record, "lowcard", -1, randno % 500);
-
+		count++;
 		mongoc_bulk_operation_insert(bulk, &record);
 		batch--;
 
