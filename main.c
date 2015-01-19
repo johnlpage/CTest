@@ -173,15 +173,14 @@ int run_inserter() {
 		bson_oid_init(&oid, NULL);
 
 		bson_append_oid(&record, "_id", -1, &oid);
-
 		bson_append_int32(&record, "rising", -1, count);
 		bson_append_int32(&record, "falling", -1, 1000000000 - count);
 		bson_append_int32(&record, "random", -1, randno);
 		bson_append_int32(&record, "lowcard", -1, randno % 500);
 		bson_append_oid(&record, "otherid", -1, &oid);
 		bson_t child;
-		bson_append_document_begin(&record, "suboobj",-1,&child);
-		bson_append_oid(&record, "otherid", -1, &oid);
+		bson_append_document_begin(&record, "subdoc",-1,&child);
+		bson_append_oid(&child, "otherid", -1, &oid);
 		bson_append_utf8(&child,"testid",-1,"This is a long piece of test just to test something",-1);
 		bson_append_oid(&child,"clientid",-1,&oid);
 		bson_append_document_end(&record,&child);
